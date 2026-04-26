@@ -1,0 +1,2 @@
+"""Smart health assistant MVP."""
+

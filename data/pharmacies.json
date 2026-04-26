@@ -1,0 +1,61 @@
+[
+  {
+    "pharmacy_name": "СберАптека на Тверской",
+    "address": "Москва, Тверская ул., 12",
+    "lat": 55.7647,
+    "lon": 37.6056,
+    "items": [
+      {
+        "drug_name": "ибупрофен",
+        "price": 118.0,
+        "in_stock": true
+      },
+      {
+        "drug_name": "парацетамол",
+        "price": 89.0,
+        "in_stock": true
+      }
+    ]
+  },
+  {
+    "pharmacy_name": "Городская аптека на Арбате",
+    "address": "Москва, Арбат, 20",
+    "lat": 55.7521,
+    "lon": 37.5927,
+    "items": [
+      {
+        "drug_name": "ибупрофен",
+        "price": 109.0,
+        "in_stock": true
+      },
+      {
+        "drug_name": "аспирин",
+        "price": 75.0,
+        "in_stock": true
+      }
+    ]
+  },
+  {
+    "pharmacy_name": "Аптека у дома",
+    "address": "Москва, Ленинградский проспект, 40",
+    "lat": 55.7902,
+    "lon": 37.5459,
+    "items": [
+      {
+        "drug_name": "парацетамол",
+        "price": 95.0,
+        "in_stock": true
+      },
+      {
+        "drug_name": "ибупрофен",
+        "price": 131.0,
+        "in_stock": false
+      },
+      {
+        "drug_name": "амоксициллин",
+        "price": 220.0,
+        "in_stock": true
+      }
+    ]
+  }
+]
