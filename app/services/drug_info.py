@@ -18,7 +18,7 @@ class DrugInfoService:
             return {
                 "name": name,
                 "answer": (
-                    "Я не нашёл карточку препарата в локальном справочнике. "
+                    "Не удалось найти карточку препарата в локальном справочнике. "
                     "Могу сообщать только справочную информацию по инструкции."
                 ),
                 "contraindications": [],
@@ -31,4 +31,3 @@ class DrugInfoService:
             "contraindications": entry["contraindications"],
             "disclaimer": SAFE_DISCLAIMER,
         }
-

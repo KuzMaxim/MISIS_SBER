@@ -274,12 +274,12 @@ class DialogService:
                 )
             result = self.pharmacy_service.search(name)
             if not result["results"]:
-                text = f"Не нашла аптек с препаратом {name} в локальном каталоге."
+                text = f"Не удалось найти аптек с препаратом {name} в локальном каталоге."
                 screen_lines = [text]
             else:
                 best = result["results"][0]
                 text = (
-                    f"Самый выгодный вариант: {best['pharmacy_name']}, "
+                    f"В локальном каталоге самая низкая цена: {best['pharmacy_name']}, "
                     f"{best['address']}, цена {best['price']} рублей."
                 )
                 screen_lines = [

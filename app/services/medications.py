@@ -212,10 +212,9 @@ class MedicationService:
         course_days = medication.get("course_days")
         if course_days:
             return (
-                f"Добавила {medication['name']} в расписание. Напоминание каждый день в "
+                f"Готово: {medication['name']} добавлен в расписание. Напоминание каждый день в "
                 f"{schedule}. Курс: {course_days} дней."
             )
         return (
-            f"Добавила {medication['name']} в расписание. Напоминание каждый день в {schedule}."
+            f"Готово: {medication['name']} добавлен в расписание. Напоминание каждый день в {schedule}."
         )
-

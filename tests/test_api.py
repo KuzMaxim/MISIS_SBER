@@ -38,7 +38,7 @@ def test_multistep_add_medication_dialog(tmp_path):
         "/api/v1/skill/handle",
         json={"user_id": "user-1", "utterance": "7 дней"},
     )
-    assert "добавила" in response.json()["text"].lower()
+    assert "добавлен" in response.json()["text"].lower()
     assert "в расписание" in response.json()["text"].lower()
 
     medications = client.get("/api/v1/medications/user-1").json()

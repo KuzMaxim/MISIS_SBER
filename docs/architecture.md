@@ -9,7 +9,7 @@
 ```text
 Пользователь (голос)
         ↓
-Voice Layer / Сбер Салют
+Voice Layer / SmartApp API
         ↓
 NLU / Intent Parser
         ↓
@@ -28,7 +28,7 @@ Mock Pharmacy API Adapter
 
 - Получает голосовую фразу
 - Передаёт текст или intent в backend
-- Может быть заменён на webhook SmartApp/Salute
+- Поддерживается через webhook SmartApp API: `POST /api/v1/sber/webhook`
 
 ### 2. NLU
 
@@ -137,9 +137,8 @@ Mock Pharmacy API Adapter
 
 ## Что можно развивать дальше
 
-- Интеграция с реальным webhook Сбер Салют
+- Продукционный деплой webhook с HTTPS и TLS 1.2+
 - Реальный API аптек
 - SQLite/PostgreSQL вместо JSON
 - Push-уведомления родственникам
 - Отдельная аналитика пропусков
-

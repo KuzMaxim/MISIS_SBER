@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GrannyCare</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="today-panel" aria-labelledby="today-title">
+        <div class="brand-row">
+          <div>
+            <p class="kicker">GrannyCare</p>
+            <h1 id="today-title">Сегодняшний приём</h1>
+          </div>
+          <button class="icon-button" type="button" aria-label="Увеличить текст" id="font-toggle">
+            А+
+          </button>
+        </div>
+
+        <article class="current-dose">
+          <div class="dose-visual" aria-hidden="true">
+            <span class="pill pill-blue"></span>
+            <span class="pill pill-green"></span>
+          </div>
+          <div class="dose-copy">
+            <p class="muted">Ближайшее напоминание</p>
+            <h2>Ибупрофен</h2>
+            <p>1 таблетка после еды, по назначенному расписанию</p>
+          </div>
+          <div class="time-box">
+            <span>09:00</span>
+            <small>через <b id="countdown">12:00</b></small>
+          </div>
+        </article>
+
+        <div class="action-row" aria-label="Ответ на напоминание">
+          <button class="primary-action" type="button" id="taken-button">Принято</button>
+          <button class="secondary-action" type="button" id="snooze-button">Отложить на 10 минут</button>
+        </div>
+
+        <div class="status-line" id="status-line" role="status">
+          Ожидаем подтверждение. Если ответа нет, напоминание повторится.
+        </div>
+      </section>
+
+      <section class="content-grid" aria-label="Сводка">
+        <article class="panel schedule-panel">
+          <div class="section-head">
+            <h2>Расписание</h2>
+            <span class="badge">3 препарата</span>
+          </div>
+          <div class="schedule-list">
+            <div class="schedule-item is-next">
+              <span class="time">09:00</span>
+              <div>
+                <strong>Ибупрофен</strong>
+                <p>5-й день курса из 7</p>
+              </div>
+            </div>
+            <div class="schedule-item">
+              <span class="time">14:00</span>
+              <div>
+                <strong>Парацетамол</strong>
+                <p>Только при наличии в расписании</p>
+              </div>
+            </div>
+            <div class="schedule-item">
+              <span class="time">21:00</span>
+              <div>
+                <strong>Аспирин</strong>
+                <p>Курс не задан</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel pharmacy-panel">
+          <div class="section-head">
+            <h2>Где купить дешевле</h2>
+            <span class="badge">mock-данные</span>
+          </div>
+          <div class="price-list">
+            <div class="price-item best">
+              <div>
+                <strong>Городская аптека на Арбате</strong>
+                <p>Москва, Арбат, 20</p>
+              </div>
+              <span>109 ₽</span>
+            </div>
+            <div class="price-item">
+              <div>
+                <strong>Здоровье рядом на Тверской</strong>
+                <p>Москва, Тверская ул., 12</p>
+              </div>
+              <span>118 ₽</span>
+            </div>
+            <div class="price-item muted-row">
+              <div>
+                <strong>Аптека у дома</strong>
+                <p>Нет в наличии</p>
+              </div>
+              <span>131 ₽</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel info-panel">
+          <div class="section-head">
+            <h2>Справка</h2>
+            <span class="badge">без назначений</span>
+          </div>
+          <p>
+            По инструкции ибупрофен используется для уменьшения боли, воспаления и
+            температуры.
+          </p>
+          <div class="warning-box">
+            Информация носит справочный характер и не заменяет консультацию врача.
+          </div>
+        </article>
+
+        <article class="panel family-panel">
+          <div class="section-head">
+            <h2>Родственник</h2>
+            <span class="badge calm">готово</span>
+          </div>
+          <p>Если приём будет пропущен несколько раз, система подготовит уведомление близкому.</p>
+          <button class="text-action" type="button" id="settings-button">Проверить настройки</button>
+        </article>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

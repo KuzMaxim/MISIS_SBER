@@ -96,6 +96,7 @@ def test_sber_multistep_add_medication_e2e(tmp_path):
         json=smartapp_request(message_name="MESSAGE_TO_SKILL", text="7 дней", message_id=4),
     ).json()
     assert "расписание" in step4["payload"]["items"][0]["bubble"]["text"].lower()
+    assert "добавлен" in step4["payload"]["items"][0]["bubble"]["text"].lower()
     assert step4["payload"]["items"][1]["card"]["cells"][1]["content"]["text"] == "Время: 09:00"
 
     meds = client.get("/api/v1/medications/smart-user").json()
