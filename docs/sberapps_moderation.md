@@ -46,6 +46,41 @@ https://<ваш-домен>/api/v1/sber/webhook
 
 Для production лучше заменить JSON-хранилище на БД с резервным копированием и контролем доступа.
 
+### Docker Compose на сервере
+
+В проект добавлены [Dockerfile](../Dockerfile) и [docker-compose.yml](../docker-compose.yml). Compose поднимает backend на `127.0.0.1:8000`, хранит runtime-состояние в volume `grannycare-state` и не кладет `data/runtime_state.json` в образ.
+
+Запуск на сервере:
+
+```bash
+git clone <ваш-репозиторий>
+cd <папка-проекта>
+docker compose up -d --build
+docker compose ps
+curl http://127.0.0.1:8000/health
+```
+
+Если порт `8000` занят, задайте другой локальный порт:
+
+```bash
+BACKEND_PORT=8001 docker compose up -d --build
+curl http://127.0.0.1:8001/health
+```
+
+Для Studio по-прежнему нужна внешняя HTTPS-ссылка. На сервере оставьте compose-порт локальным и прокиньте домен через Nginx/Caddy/другой reverse proxy на `http://127.0.0.1:8000`:
+
+```text
+https://<ваш-домен>/api/v1/sber/webhook -> http://127.0.0.1:8000/api/v1/sber/webhook
+```
+
+После обновления кода:
+
+```bash
+git pull
+docker compose up -d --build
+docker compose logs -f backend
+```
+
 ### Персональные данные
 
 Проект хранит `user_id`, список лекарств, расписание приема и опционально контакт родственника. Это может считаться персональными данными, а часть информации относится к чувствительной медицинской тематике.
@@ -301,9 +336,22 @@ Invoke-RestMethod http://127.0.0.1:8000/api/v1/sber/webhook `
   -Body '{"sessionId":"demo-session","messageId":1,"messageName":"RUN_APP","uuid":{"userChannel":"B2C","sub":"demo-user","userId":"demo-user"},"payload":{"new_session":true,"meta":{"features":{"screen":{"enabled":true}}},"device":{"surface":"SBERBOX","capabilities":{"screen":{"available":true},"speak":{"available":true}}}}}'
 ```
 
+Проверка через Docker Compose:
+
+```powershell
+docker compose up -d --build
+Invoke-RestMethod http://127.0.0.1:8000/health
+Invoke-RestMethod http://127.0.0.1:8000/api/v1/sber/webhook `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{"sessionId":"docker-session","messageId":1,"messageName":"RUN_APP","uuid":{"userChannel":"B2C","sub":"docker-user","userId":"docker-user"},"payload":{"new_session":true,"meta":{"features":{"screen":{"enabled":true}}},"device":{"surface":"SBERBOX","capabilities":{"screen":{"available":true},"speak":{"available":true}}}}}'
+docker compose down
+```
+
 ## Последний чек перед отправкой
 
 - `pytest -q` проходит.
+- `docker compose up -d --build` поднимает backend, `/health` отвечает `{"status":"ok"}`.
 - `grannycare-frontend.zip` пересобран после последних изменений.
 - Backend доступен извне по HTTPS.
 - В Studio заполнены название, сценарий, хостинг frontend, описание, категории, примеры запуска, инструкции тестирования и FAQ.
