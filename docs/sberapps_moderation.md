@@ -81,6 +81,67 @@ docker compose up -d --build
 docker compose logs -f backend
 ```
 
+### Привязка домена и HTTPS
+
+Самый простой production-вариант для этого проекта: домен смотрит на сервер, а Caddy в Docker автоматически получает и обновляет HTTPS-сертификат Let's Encrypt.
+
+1. На стороне регистратора домена добавьте DNS-запись:
+
+```text
+A    <ваш-домен>    <публичный IPv4 сервера>
+```
+
+Если используете поддомен, например `api.example.com`, добавьте запись именно для него:
+
+```text
+A    api    <публичный IPv4 сервера>
+```
+
+2. На сервере откройте входящие порты `80` и `443`. Они нужны Caddy для выпуска сертификата и HTTPS-трафика.
+
+3. Создайте `.env` из шаблона и укажите ваш домен:
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Пример:
+
+```env
+DOMAIN=api.example.com
+ACME_EMAIL=admin@example.com
+BACKEND_PORT=8000
+```
+
+4. Поднимите backend вместе с HTTPS-прокси:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.https.yml ps
+docker compose -f docker-compose.yml -f docker-compose.https.yml logs -f caddy
+```
+
+5. Проверьте снаружи:
+
+```bash
+curl https://api.example.com/health
+```
+
+Ожидаемый ответ:
+
+```json
+{"status":"ok"}
+```
+
+Webhook для Studio:
+
+```text
+https://api.example.com/api/v1/sber/webhook
+```
+
+Если на сервере уже есть Nginx/Caddy, который занимает `80` и `443`, не запускайте `docker-compose.https.yml`. В этом случае оставьте текущий backend на `127.0.0.1:8000` и добавьте reverse proxy в существующий веб-сервер.
+
 ### Персональные данные
 
 Проект хранит `user_id`, список лекарств, расписание приема и опционально контакт родственника. Это может считаться персональными данными, а часть информации относится к чувствительной медицинской тематике.
