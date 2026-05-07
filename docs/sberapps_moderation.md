@@ -114,6 +114,20 @@ ACME_EMAIL=admin@example.com
 BACKEND_PORT=8000
 ```
 
+Для кириллического домена `сберапп.рф` безопаснее указать punycode-вариант:
+
+```env
+DOMAIN=xn--80abm5bade.xn--p1ai
+ACME_EMAIL=admin@example.com
+BACKEND_PORT=8000
+```
+
+В браузере и Studio после этого можно использовать обычную кириллическую ссылку:
+
+```text
+https://сберапп.рф/api/v1/sber/webhook
+```
+
 4. Поднимите backend вместе с HTTPS-прокси:
 
 ```bash
@@ -141,6 +155,19 @@ https://api.example.com/api/v1/sber/webhook
 ```
 
 Если на сервере уже есть Nginx/Caddy, который занимает `80` и `443`, не запускайте `docker-compose.https.yml`. В этом случае оставьте текущий backend на `127.0.0.1:8000` и добавьте reverse proxy в существующий веб-сервер.
+
+Если браузер пишет, что соединение неожиданно прервано, проверьте на сервере:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.https.yml ps
+docker compose -f docker-compose.yml -f docker-compose.https.yml logs --tail 100 caddy
+docker compose -f docker-compose.yml -f docker-compose.https.yml logs --tail 100 backend
+curl http://127.0.0.1:8000/health
+curl -vk https://сберапп.рф/health
+sudo ss -ltnp | grep -E ':80|:443|:8000'
+```
+
+Рабочий backend через HTTPS должен отвечать на `/health`. Сам `/api/v1/sber/webhook` открывается методом `POST`; при обычном открытии в браузере `GET` может вернуть `405 Method Not Allowed`, и это нормально. Ошибка TLS или `Empty reply from server` означает, что проблема в HTTPS-прокси, firewall или в том, что порты `80/443` заняты другим сервисом.
 
 ### Персональные данные
 
