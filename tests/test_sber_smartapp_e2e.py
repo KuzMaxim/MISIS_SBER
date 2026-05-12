@@ -16,6 +16,7 @@ def smartapp_request(
     *,
     message_name: str,
     text: str | None = None,
+    intent: str | None = None,
     message_id: int = 1,
     user_id: str = "smart-user",
     has_screen: bool = True,
@@ -31,7 +32,7 @@ def smartapp_request(
             },
         },
         "new_session": new_session,
-        "intent": None,
+        "intent": intent,
     }
     if text is not None:
         payload["message"] = {"original_text": text}
@@ -69,6 +70,18 @@ def test_sber_run_app_returns_screen_and_audio(tmp_path):
     assert body["payload"]["suggestions"]["buttons"]
 
 
+def test_sber_root_webhook_alias_accepts_smartapp_requests(tmp_path):
+    client = build_client(tmp_path)
+
+    response = client.post(
+        "/",
+        json=smartapp_request(message_name="RUN_APP", has_screen=True),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["messageName"] == "ANSWER_TO_USER"
+
+
 def test_sber_multistep_add_medication_e2e(tmp_path):
     client = build_client(tmp_path)
 
@@ -81,19 +94,34 @@ def test_sber_multistep_add_medication_e2e(tmp_path):
 
     step2 = client.post(
         "/api/v1/sber/webhook",
-        json=smartapp_request(message_name="MESSAGE_TO_SKILL", text="Аспирин", message_id=2),
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Аспирин",
+            intent=step1["payload"]["intent"],
+            message_id=2,
+        ),
     ).json()
     assert "Когда принимать" in step2["payload"]["items"][0]["bubble"]["text"]
 
     step3 = client.post(
         "/api/v1/sber/webhook",
-        json=smartapp_request(message_name="MESSAGE_TO_SKILL", text="Каждый день в 9 утра", message_id=3),
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Каждый день в 9 утра",
+            intent=step2["payload"]["intent"],
+            message_id=3,
+        ),
     ).json()
     assert "Сколько дней курс" in step3["payload"]["items"][0]["bubble"]["text"]
 
     step4 = client.post(
         "/api/v1/sber/webhook",
-        json=smartapp_request(message_name="MESSAGE_TO_SKILL", text="7 дней", message_id=4),
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="7 дней",
+            intent=step3["payload"]["intent"],
+            message_id=4,
+        ),
     ).json()
     assert "расписание" in step4["payload"]["items"][0]["bubble"]["text"].lower()
     assert "добавлен" in step4["payload"]["items"][0]["bubble"]["text"].lower()
@@ -102,6 +130,29 @@ def test_sber_multistep_add_medication_e2e(tmp_path):
     meds = client.get("/api/v1/medications/smart-user").json()
     assert len(meds) == 1
     assert meds[0]["name"] == "Аспирин"
+
+
+def test_sber_previous_response_intent_does_not_break_multistep_flow(tmp_path):
+    client = build_client(tmp_path)
+
+    step1 = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(message_name="MESSAGE_TO_SKILL", text="Добавь лекарство", message_id=1),
+    ).json()
+    previous_intent = step1["payload"]["intent"]
+    assert previous_intent == "ДобавитьЛекарство"
+
+    step2 = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Аспирин",
+            intent=previous_intent,
+            message_id=2,
+        ),
+    ).json()
+
+    assert "Когда принимать" in step2["payload"]["items"][0]["bubble"]["text"]
 
 
 def test_sber_screen_search_and_safe_refusal_e2e(tmp_path):

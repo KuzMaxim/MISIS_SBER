@@ -110,12 +110,19 @@ def create_app(
     def handle_skill(request: VoiceRequest) -> VoiceResponse:
         return app.state.dialog_service.handle(request)
 
-    @app.post("/api/v1/sber/webhook")
-    def handle_sber_webhook(request: SmartAppRequest):
+    def handle_sber_request(request: SmartAppRequest):
         response_body = app.state.smartapp_service.handle(request)
         if response_body is None:
             return Response(status_code=204)
         return response_body
+
+    @app.post("/")
+    def handle_sber_root_webhook(request: SmartAppRequest):
+        return handle_sber_request(request)
+
+    @app.post("/api/v1/sber/webhook")
+    def handle_sber_webhook(request: SmartAppRequest):
+        return handle_sber_request(request)
 
     @app.post("/api/v1/medications", response_model=OperationResponse)
     def add_medication(payload: MedicationCreate) -> OperationResponse:

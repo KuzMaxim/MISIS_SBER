@@ -32,7 +32,9 @@ class SmartAppService:
                 VoiceRequest(
                     user_id=user_id,
                     utterance=utterance,
-                    intent=request.payload.intent,
+                    # In SmartApp API this is the context value returned by the
+                    # previous response, not a freshly classified user intent.
+                    intent=None,
                 )
             )
 
