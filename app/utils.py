@@ -58,7 +58,7 @@ def parse_time_fragment(text: str) -> str | None:
             continue
 
         hour = int(match.group("hour"))
-        minute = int(match.group("minute") or 0)
+        minute = int(match.groupdict().get("minute") or 0)
         period = match.groupdict().get("period")
 
         if period in {"вечера", "дня"} and hour < 12:

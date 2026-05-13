@@ -155,6 +155,28 @@ def test_sber_previous_response_intent_does_not_break_multistep_flow(tmp_path):
     assert "Когда принимать" in step2["payload"]["items"][0]["bubble"]["text"]
 
 
+def test_sber_one_phrase_moderation_add_without_course(tmp_path):
+    client = build_client(tmp_path)
+
+    response = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Напомни принимать ибупрофен каждый день в 9 утра без курса",
+            message_id=1,
+        ),
+    )
+    body = response.json()
+
+    assert response.status_code == 200
+    assert "добавлен" in body["payload"]["items"][0]["bubble"]["text"].lower()
+    assert "09:00" in body["payload"]["items"][0]["bubble"]["text"]
+    assert any(
+        cell["content"]["text"] == "Курс: не задан"
+        for cell in body["payload"]["items"][1]["card"]["cells"]
+    )
+
+
 def test_sber_screen_search_and_safe_refusal_e2e(tmp_path):
     client = build_client(tmp_path)
 
