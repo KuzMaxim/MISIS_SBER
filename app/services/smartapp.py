@@ -106,7 +106,7 @@ class SmartAppService:
             finished=False,
             audio_cue="welcome",
             emotion="zainteresovannost",
-            screen_title="Форгра",
+            screen_title="Помощник здоровья",
             screen_lines=[
                 "Добавление лекарства",
                 "Напоминания и подтверждение приема",

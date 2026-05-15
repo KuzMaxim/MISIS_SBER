@@ -90,7 +90,7 @@ def create_app(
             await task
 
     app = FastAPI(
-        title="Форгра",
+        title="Помощник здоровья",
         version="0.1.0",
         lifespan=lifespan,
     )
