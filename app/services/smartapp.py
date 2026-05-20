@@ -50,8 +50,14 @@ class SmartAppService:
 
     @staticmethod
     def _extract_utterance(request: SmartAppRequest) -> str | None:
-        if request.payload.message and request.payload.message.original_text:
-            return request.payload.message.original_text
+        if request.payload.message:
+            for text in (
+                request.payload.message.original_text,
+                request.payload.message.asr_normalized_message,
+                request.payload.message.normalized_text,
+            ):
+                if text:
+                    return text
         if request.payload.server_action and request.payload.server_action.parameters:
             return request.payload.server_action.parameters.get("text")
         return None
@@ -92,27 +98,25 @@ class SmartAppService:
     def _welcome_response() -> VoiceResponse:
         return VoiceResponse(
             text=(
-                "Я помогу не забывать о лекарствах: добавлю препарат в расписание, "
-                "подскажу день курса, дам справку по инструкции и помогу найти аптеку."
+                "Расписание пока пустое. Я помогу добавить первый препарат, задать время приема "
+                "и при необходимости длительность курса."
             ),
-            intent="Помощь",
+            intent=None,
             disclaimer=SAFE_DISCLAIMER,
             suggestions=[
                 "Добавь лекарство",
-                "Для чего парацетамол",
-                "Где купить ибупрофен",
+                "Помощь",
+                "Показать лекарства",
             ],
             auto_listening=True,
             finished=False,
             audio_cue="welcome",
             emotion="zainteresovannost",
-            screen_title="Помощник здоровья",
+            screen_title="Настройте расписание",
             screen_lines=[
-                "Добавление лекарства",
-                "Напоминания и подтверждение приема",
-                "Курс лечения",
-                "Справка по инструкции",
-                "Поиск аптек",
+                "Список лекарств пока пуст.",
+                "Скажите: добавь лекарство.",
+                "Затем назовите препарат, время приема и курс.",
                 SAFE_DISCLAIMER,
             ],
             speak_disclaimer=True,

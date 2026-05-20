@@ -70,6 +70,34 @@ def test_sber_run_app_returns_screen_and_audio(tmp_path):
     assert body["payload"]["suggestions"]["buttons"]
 
 
+def test_sber_first_launch_starts_with_empty_setup_screen(tmp_path):
+    client = build_client(tmp_path)
+
+    response = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="RUN_APP",
+            has_screen=True,
+            new_session=True,
+            user_id="new-smart-user",
+        ),
+    )
+    body = response.json()
+    visible_text = " ".join(
+        cell["content"]["text"]
+        for cell in body["payload"]["items"][1]["card"]["cells"]
+    )
+
+    assert response.status_code == 200
+    assert "Расписание пока пустое" in body["payload"]["items"][0]["bubble"]["text"]
+    assert "Список лекарств пока пуст" in visible_text
+    assert "Добавь лекарство" in [
+        button["title"] for button in body["payload"]["suggestions"]["buttons"]
+    ]
+    assert client.get("/api/v1/medications/new-smart-user").json() == []
+    assert not any(name in visible_text for name in ["Аспирин", "Ибупрофен", "Парацетамол"])
+
+
 def test_sber_root_webhook_alias_accepts_smartapp_requests(tmp_path):
     client = build_client(tmp_path)
 
@@ -130,6 +158,64 @@ def test_sber_multistep_add_medication_e2e(tmp_path):
     meds = client.get("/api/v1/medications/smart-user").json()
     assert len(meds) == 1
     assert meds[0]["name"] == "Аспирин"
+
+
+def test_sber_moderation_time_phrases_are_recognized_e2e(tmp_path):
+    client = build_client(tmp_path)
+
+    for index, time_phrase in enumerate(
+        ["Каждый день в 9 утра", "В 9 утра", "каждый день 9 утра", "в девять утра"],
+        start=1,
+    ):
+        user_id = f"time-phrase-user-{index}"
+        step1 = client.post(
+            "/api/v1/sber/webhook",
+            json=smartapp_request(
+                message_name="MESSAGE_TO_SKILL",
+                text="Добавь лекарство",
+                message_id=index * 10 + 1,
+                user_id=user_id,
+            ),
+        ).json()
+        step2 = client.post(
+            "/api/v1/sber/webhook",
+            json=smartapp_request(
+                message_name="MESSAGE_TO_SKILL",
+                text="Аспирин",
+                intent=step1["payload"]["intent"],
+                message_id=index * 10 + 2,
+                user_id=user_id,
+            ),
+        ).json()
+        step3 = client.post(
+            "/api/v1/sber/webhook",
+            json=smartapp_request(
+                message_name="MESSAGE_TO_SKILL",
+                text=time_phrase,
+                intent=step2["payload"]["intent"],
+                message_id=index * 10 + 3,
+                user_id=user_id,
+            ),
+        ).json()
+
+        bubble_text = step3["payload"]["items"][0]["bubble"]["text"]
+        assert "Не удалось распознать время" not in bubble_text
+        assert "Сколько дней курс" in bubble_text
+
+        step4 = client.post(
+            "/api/v1/sber/webhook",
+            json=smartapp_request(
+                message_name="MESSAGE_TO_SKILL",
+                text="7 дней",
+                intent=step3["payload"]["intent"],
+                message_id=index * 10 + 4,
+                user_id=user_id,
+            ),
+        ).json()
+        assert "09:00" in step4["payload"]["items"][0]["bubble"]["text"]
+        assert client.get(f"/api/v1/medications/{user_id}").json()[0]["schedule_times"] == [
+            "09:00"
+        ]
 
 
 def test_sber_previous_response_intent_does_not_break_multistep_flow(tmp_path):

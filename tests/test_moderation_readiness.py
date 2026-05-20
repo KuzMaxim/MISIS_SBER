@@ -188,3 +188,18 @@ def test_visible_demo_assets_do_not_use_protected_sber_brands():
         content = path.read_text(encoding="utf-8")
         for term in banned_terms:
             assert term not in content, f"{term!r} found in {path}"
+
+
+def test_frontend_starts_as_empty_setup_template():
+    index_html = Path("frontend/index.html").read_text(encoding="utf-8")
+    app_js = Path("frontend/app.js").read_text(encoding="utf-8")
+
+    assert "Настройка расписания" in index_html
+    assert "Расписание пока пустое" in index_html
+    assert "Список лекарств пуст" in index_html
+    assert "Сегодняшний приём" not in index_html
+    assert "3 препарата" not in index_html
+
+    for medication_name in ["Аспирин", "Ибупрофен", "Парацетамол"]:
+        assert medication_name not in index_html
+        assert medication_name not in app_js

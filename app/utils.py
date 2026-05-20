@@ -4,6 +4,50 @@ import math
 import re
 from datetime import date, datetime, timedelta
 
+_TIME_NUMBER_WORDS = {
+    "ноль": "0",
+    "один": "1",
+    "одна": "1",
+    "два": "2",
+    "две": "2",
+    "три": "3",
+    "четыре": "4",
+    "пять": "5",
+    "шесть": "6",
+    "семь": "7",
+    "восемь": "8",
+    "девять": "9",
+    "десять": "10",
+    "одиннадцать": "11",
+    "двенадцать": "12",
+    "тринадцать": "13",
+    "четырнадцать": "14",
+    "пятнадцать": "15",
+    "шестнадцать": "16",
+    "семнадцать": "17",
+    "восемнадцать": "18",
+    "девятнадцать": "19",
+    "двадцать": "20",
+    "двадцать один": "21",
+    "двадцать два": "22",
+    "двадцать три": "23",
+}
+
+_TIME_PERIOD_ALIASES = {
+    "утром": "утра",
+    "вечером": "вечера",
+    "днем": "дня",
+    "днём": "дня",
+    "ночью": "ночи",
+}
+
+_TIME_NUMBER_PATTERN = re.compile(
+    r"\b(" + "|".join(sorted(map(re.escape, _TIME_NUMBER_WORDS), key=len, reverse=True)) + r")\b"
+)
+_TIME_PERIOD_PATTERN = re.compile(
+    r"\b(" + "|".join(sorted(map(re.escape, _TIME_PERIOD_ALIASES), key=len, reverse=True)) + r")\b"
+)
+
 
 def single_line_text(value: str) -> str:
     return re.sub(r"\s+", " ", value.replace("\n", " ").replace("\r", " ")).strip()
@@ -44,12 +88,24 @@ def ensure_hhmm(value: str) -> str:
     return f"{int(hour):02d}:{int(minute):02d}"
 
 
-def parse_time_fragment(text: str) -> str | None:
+def normalize_time_text(text: str) -> str:
     lowered = normalize_text(text)
+    lowered = _TIME_PERIOD_PATTERN.sub(lambda match: _TIME_PERIOD_ALIASES[match.group(0)], lowered)
+    return _TIME_NUMBER_PATTERN.sub(lambda match: _TIME_NUMBER_WORDS[match.group(0)], lowered)
+
+
+def parse_time_fragment(text: str) -> str | None:
+    lowered = normalize_time_text(text)
     patterns = [
-        re.compile(r"\bв\s*(?P<hour>\d{1,2})(?::(?P<minute>\d{2}))?\s*(?P<period>утра|вечера|дня|ночи)?\b"),
-        re.compile(r"\b(?P<hour>\d{1,2}):(?P<minute>\d{2})\b"),
-        re.compile(r"^(?P<hour>\d{1,2})\s*(?P<period>утра|вечера|дня|ночи)\b"),
+        re.compile(
+            r"\bв\s*(?P<hour>\d{1,2})(?:[.:](?P<minute>\d{2}))?"
+            r"\s*(?:час(?:а|ов)?\s*)?(?P<period>утра|вечера|дня|ночи)?\b"
+        ),
+        re.compile(r"\b(?P<hour>\d{1,2})[.:](?P<minute>\d{2})\b"),
+        re.compile(
+            r"\b(?P<hour>\d{1,2})(?:[.:](?P<minute>\d{2}))?"
+            r"\s*(?:час(?:а|ов)?\s*)?(?P<period>утра|вечера|дня|ночи)\b"
+        ),
     ]
 
     for pattern in patterns:

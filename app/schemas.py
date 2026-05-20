@@ -191,6 +191,8 @@ class SmartAppMessage(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     original_text: str | None = None
+    normalized_text: str | None = None
+    asr_normalized_message: str | None = None
 
 
 class SmartAppServerAction(BaseModel):

@@ -8,40 +8,49 @@
   </head>
   <body>
     <main class="app-shell">
-      <section class="today-panel" aria-labelledby="today-title">
+      <section class="today-panel setup-panel" aria-labelledby="today-title">
         <div class="brand-row">
           <div>
             <p class="kicker">Помощник здоровья</p>
-            <h1 id="today-title">Сегодняшний приём</h1>
+            <h1 id="today-title">Настройка расписания</h1>
           </div>
           <button class="icon-button" type="button" aria-label="Увеличить текст" id="font-toggle">
             А+
           </button>
         </div>
 
-        <article class="current-dose">
-          <div class="dose-visual" aria-hidden="true">
+        <article class="current-dose empty-dose">
+          <div class="dose-visual setup-visual" aria-hidden="true">
             <span class="pill pill-blue"></span>
             <span class="pill pill-green"></span>
           </div>
           <div class="dose-copy">
-            <p class="muted">Ближайшее напоминание</p>
-            <h2>Ибупрофен</h2>
-            <p>1 таблетка после еды, по назначенному расписанию</p>
+            <p class="muted">Первый запуск</p>
+            <h2>Расписание пока пустое</h2>
+            <p>Добавьте первый препарат и задайте время приема. Готовых лекарств здесь нет.</p>
           </div>
-          <div class="time-box">
-            <span>09:00</span>
-            <small>через <b id="countdown">12:00</b></small>
+          <div class="time-box empty-time" aria-label="Время приема не задано">
+            <span>--:--</span>
+            <small>время задаст пользователь</small>
           </div>
         </article>
 
-        <div class="action-row" aria-label="Ответ на напоминание">
-          <button class="primary-action" type="button" id="taken-button">Принято</button>
-          <button class="secondary-action" type="button" id="snooze-button">Отложить на 10 минут</button>
+        <div class="action-row" aria-label="Начало настройки">
+          <button class="primary-action" type="button" id="setup-button">Начать настройку</button>
+          <button class="secondary-action" type="button" id="help-button">Что умеет</button>
         </div>
 
         <div class="status-line" id="status-line" role="status">
-          Ожидаем подтверждение. Если ответа нет, напоминание повторится.
+          Список лекарств пуст. Скажите ассистенту: «Добавь лекарство».
+        </div>
+
+        <div class="quick-actions" aria-label="Основные функции">
+          <button type="button" data-action="add">Добавить лекарство</button>
+          <button type="button" data-action="list">Показать лекарства</button>
+          <button type="button" data-action="course">День курса</button>
+          <button type="button" data-action="info">Справка</button>
+          <button type="button" data-action="pharmacy">Найти аптеку</button>
+          <button type="button" data-action="safety">Безопасный отказ</button>
         </div>
       </section>
 
@@ -49,61 +58,24 @@
         <article class="panel schedule-panel">
           <div class="section-head">
             <h2>Расписание</h2>
-            <span class="badge">3 препарата</span>
+            <span class="badge">пусто</span>
           </div>
-          <div class="schedule-list">
-            <div class="schedule-item is-next">
-              <span class="time">09:00</span>
-              <div>
-                <strong>Ибупрофен</strong>
-                <p>5-й день курса из 7</p>
-              </div>
-            </div>
-            <div class="schedule-item">
-              <span class="time">14:00</span>
-              <div>
-                <strong>Парацетамол</strong>
-                <p>Только при наличии в расписании</p>
-              </div>
-            </div>
-            <div class="schedule-item">
-              <span class="time">21:00</span>
-              <div>
-                <strong>Аспирин</strong>
-                <p>Курс не задан</p>
-              </div>
-            </div>
+          <div class="empty-state">
+            <strong>Нет добавленных препаратов</strong>
+            <p>После настройки здесь появятся названия, время приема и статус курса.</p>
           </div>
         </article>
 
-        <article class="panel pharmacy-panel">
+        <article class="panel setup-steps-panel">
           <div class="section-head">
-            <h2>Где купить дешевле</h2>
-            <span class="badge">mock-данные</span>
+            <h2>Мастер настройки</h2>
+            <span class="badge">3 шага</span>
           </div>
-          <div class="price-list">
-            <div class="price-item best">
-              <div>
-                <strong>Городская аптека на Арбате</strong>
-                <p>Москва, Арбат, 20</p>
-              </div>
-              <span>109 ₽</span>
-            </div>
-            <div class="price-item">
-              <div>
-                <strong>Здоровье рядом на Тверской</strong>
-                <p>Москва, Тверская ул., 12</p>
-              </div>
-              <span>118 ₽</span>
-            </div>
-            <div class="price-item muted-row">
-              <div>
-                <strong>Аптека у дома</strong>
-                <p>Нет в наличии</p>
-              </div>
-              <span>131 ₽</span>
-            </div>
-          </div>
+          <ol class="setup-steps">
+            <li><span>1</span><p>Назовите препарат.</p></li>
+            <li><span>2</span><p>Скажите время, например: «в 9 утра».</p></li>
+            <li><span>3</span><p>Укажите курс или скажите: «без курса».</p></li>
+          </ol>
         </article>
 
         <article class="panel info-panel">
@@ -112,20 +84,24 @@
             <span class="badge">без назначений</span>
           </div>
           <p>
-            По инструкции ибупрофен используется для уменьшения боли, воспаления и
-            температуры.
+            Справочная информация открывается по запросу пользователя и не подменяет консультацию врача.
           </p>
           <div class="warning-box">
-            Информация носит справочный характер и не заменяет консультацию врача.
+            Приложение не ставит диагнозы и не назначает лечение.
           </div>
         </article>
 
         <article class="panel family-panel">
           <div class="section-head">
-            <h2>Родственник</h2>
-            <span class="badge calm">готово</span>
+            <h2>Уведомления</h2>
+            <span class="badge calm">по желанию</span>
           </div>
-          <p>Если приём будет пропущен несколько раз, система подготовит уведомление близкому.</p>
+          <p>Контакт близкого можно добавить позже, когда пользователь сам настроит расписание.</p>
+          <div class="settings-summary" id="settings-summary">
+            <span>Крупный текст: выключен</span>
+            <span>Повтор напоминания: через 10 минут</span>
+            <span>Уведомление близкому: не задано</span>
+          </div>
           <button class="text-action" type="button" id="settings-button">Проверить настройки</button>
         </article>
       </section>
