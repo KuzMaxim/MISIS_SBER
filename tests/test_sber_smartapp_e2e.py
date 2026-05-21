@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.utils import local_now
 
 
 def build_client(tmp_path):
@@ -352,6 +353,7 @@ def test_sber_course_words_and_canvas_state_update_e2e(tmp_path):
         {
             "name": "Аспирин",
             "schedule_times": ["09:00"],
+            "next_time": "09:00",
             "course_days": 7,
         }
     ]
@@ -369,6 +371,98 @@ def test_sber_course_words_and_canvas_state_update_e2e(tmp_path):
         "payload"
     ]["items"][0]["bubble"]["text"]
     assert run_app["payload"]["items"][1]["card"]["cells"][0]["content"]["text"] == "Ваше расписание"
+
+
+def test_sber_medication_list_is_ordered_by_next_intake(tmp_path):
+    client = build_client(tmp_path)
+    user_id = "ordered-user"
+    now = local_now().replace(second=0, microsecond=0)
+    near_time = (now + timedelta(hours=9)).strftime("%H:%M")
+    far_time = (now - timedelta(hours=5)).strftime("%H:%M")
+
+    for name, schedule_time in [
+        ("Дальний препарат", far_time),
+        ("Ближайший препарат", near_time),
+    ]:
+        response = client.post(
+            "/api/v1/medications",
+            json={
+                "user_id": user_id,
+                "name": name,
+                "schedule_times": [schedule_time],
+                "course_days": 7,
+                "started_at": now.date().isoformat(),
+            },
+        )
+        assert response.status_code == 200
+
+    list_response = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Показать лекарства",
+            message_id=1,
+            user_id=user_id,
+        ),
+    ).json()
+    bubble_text = list_response["payload"]["items"][0]["bubble"]["text"]
+    command_items = [
+        item["command"]
+        for item in list_response["payload"]["items"]
+        if "command" in item and item["command"]["type"] == "smart_app_data"
+    ]
+
+    assert bubble_text.index("Ближайший препарат") < bubble_text.index("Дальний препарат")
+    assert command_items[0]["smart_app_data"]["payload"]["medications"][0]["name"] == "Ближайший препарат"
+
+
+def test_sber_pharmacy_and_info_buttons_ask_for_drug_name(tmp_path):
+    client = build_client(tmp_path)
+    user_id = "prompt-user"
+
+    pharmacy_prompt = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Найти аптеку",
+            message_id=1,
+            user_id=user_id,
+        ),
+    ).json()
+    assert "Назовите препарат" in pharmacy_prompt["payload"]["items"][0]["bubble"]["text"]
+
+    pharmacy_result = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Ибупрофен",
+            message_id=2,
+            user_id=user_id,
+        ),
+    ).json()
+    assert "самая низкая цена" in pharmacy_result["payload"]["items"][0]["bubble"]["text"]
+
+    info_prompt = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Справка о препарате",
+            message_id=3,
+            user_id=user_id,
+        ),
+    ).json()
+    assert "Назовите препарат" in info_prompt["payload"]["items"][0]["bubble"]["text"]
+
+    info_result = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Парацетамол",
+            message_id=4,
+            user_id=user_id,
+        ),
+    ).json()
+    assert info_result["payload"]["items"][0]["bubble"]["text"].startswith("По инструкции")
 
 
 def test_sber_previous_response_intent_does_not_break_multistep_flow(tmp_path):

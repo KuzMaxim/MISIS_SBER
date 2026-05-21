@@ -76,8 +76,16 @@ def extract_course_details(text: str) -> dict[str, Any]:
 def parse_utterance(text: str) -> ParsedIntent:
     lowered = normalize_text(text)
 
-    if lowered in {"помощь", "справка", "что ты умеешь", "что умеешь"}:
+    if lowered in {"помощь", "что ты умеешь", "что умеешь"}:
         return ParsedIntent("Помощь", {})
+
+    if lowered in {
+        "справка",
+        "справка о препарате",
+        "справка по препарату",
+        "информация о препарате",
+    }:
+        return ParsedIntent("СправкаОПрепарате", {})
 
     if lowered in {"выход", "стоп", "закрыть", "закрой навык", "завершить"}:
         return ParsedIntent("Завершить", {})
@@ -163,6 +171,9 @@ def parse_utterance(text: str) -> ParsedIntent:
             "ПоискАптеки",
             {"name": pharmacy_match.group("name").strip(" .,!?:;")},
         )
+
+    if lowered in {"найти аптеку", "поиск аптеки", "где купить"}:
+        return ParsedIntent("ПоискАптеки", {})
 
     info_usage_match = re.search(r"для чего(?:\s+используется)?\s+(?P<name>.+)$", lowered)
     if info_usage_match:

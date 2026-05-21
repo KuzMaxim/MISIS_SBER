@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import math
+import os
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 _TIME_NUMBER_WORDS = {
     "ноль": "0",
@@ -64,7 +66,8 @@ def normalize_medication_name(value: str) -> str:
 
 
 def local_now() -> datetime:
-    return datetime.now().replace(microsecond=0)
+    timezone = ZoneInfo(os.environ.get("APP_TIMEZONE", "Europe/Moscow"))
+    return datetime.now(timezone).replace(tzinfo=None, microsecond=0)
 
 
 def parse_iso_datetime(value: str | None) -> datetime | None:
@@ -86,6 +89,19 @@ def format_schedule_times(times: list[str]) -> str:
 def ensure_hhmm(value: str) -> str:
     hour, minute = value.split(":")
     return f"{int(hour):02d}:{int(minute):02d}"
+
+
+def minutes_until_time(value: str, *, now: datetime | None = None) -> int:
+    current = now or local_now()
+    hour, minute = ensure_hhmm(value).split(":")
+    target = datetime.combine(current.date(), time(int(hour), int(minute)))
+    if target < current.replace(second=0, microsecond=0):
+        target += timedelta(days=1)
+    return int((target - current.replace(second=0, microsecond=0)).total_seconds() // 60)
+
+
+def nearest_schedule_time(times: list[str], *, now: datetime | None = None) -> str:
+    return min(times, key=lambda item: minutes_until_time(item, now=now))
 
 
 def normalize_time_text(text: str) -> str:

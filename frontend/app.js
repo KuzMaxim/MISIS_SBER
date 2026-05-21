@@ -41,6 +41,39 @@ function formatTimes(times) {
   return [...(times || [])].sort().join(", ");
 }
 
+function minutesUntilTime(value) {
+  const [hour, minute] = value.split(":").map(Number);
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(hour, minute, 0, 0);
+  const currentMinute = new Date(now);
+  currentMinute.setSeconds(0, 0);
+  if (target < currentMinute) {
+    target.setDate(target.getDate() + 1);
+  }
+  return Math.round((target - currentMinute) / 60000);
+}
+
+function nearestTime(times) {
+  const safeTimes = times || [];
+  if (!safeTimes.length) {
+    return "";
+  }
+  return [...safeTimes].sort((left, right) => minutesUntilTime(left) - minutesUntilTime(right))[0];
+}
+
+function sortMedications(medications) {
+  return [...(medications || [])].sort((left, right) => {
+    const leftTime = left.next_time || nearestTime(left.schedule_times);
+    const rightTime = right.next_time || nearestTime(right.schedule_times);
+    const minutesDiff = minutesUntilTime(leftTime) - minutesUntilTime(rightTime);
+    if (minutesDiff !== 0) {
+      return minutesDiff;
+    }
+    return left.name.localeCompare(right.name, "ru");
+  });
+}
+
 function formatCourse(medication) {
   return medication.course_days ? `курс ${medication.course_days} дней` : "курс не задан";
 }
@@ -63,7 +96,7 @@ function renderSettings() {
 }
 
 function renderSchedule(medications) {
-  appState = { medications: medications || [] };
+  appState = { medications: sortMedications(medications) };
 
   if (!appState.medications.length) {
     summaryCard.classList.add("empty-dose");
@@ -82,25 +115,30 @@ function renderSchedule(medications) {
   }
 
   const firstMedication = appState.medications[0];
+  const firstTime = firstMedication.next_time || nearestTime(firstMedication.schedule_times);
   summaryCard.classList.remove("empty-dose");
   summaryKicker.textContent = "Расписание";
   summaryTitle.textContent = formatMedicationCount(appState.medications.length);
-  summaryCopy.textContent = `${firstMedication.name}: ${formatTimes(firstMedication.schedule_times)}, ${formatCourse(firstMedication)}.`;
-  nextTime.textContent = formatTimes(firstMedication.schedule_times) || "--:--";
+  summaryCopy.textContent = `Ближайший прием: ${firstMedication.name}, ${firstTime}, ${formatCourse(firstMedication)}.`;
+  nextTime.textContent = firstTime || "--:--";
   nextTimeCaption.textContent = "ближайшее время приема";
   scheduleBadge.textContent = formatMedicationCount(appState.medications.length);
   scheduleList.className = "schedule-list";
   scheduleList.innerHTML = appState.medications
     .map(
-      (medication, index) => `
+      (medication, index) => {
+        const nextMedicationTime = medication.next_time || nearestTime(medication.schedule_times);
+        const allTimes = formatTimes(medication.schedule_times);
+        return `
         <div class="schedule-item ${index === 0 ? "is-next" : ""}">
-          <span class="time">${escapeHtml(formatTimes(medication.schedule_times) || "--:--")}</span>
+          <span class="time">${escapeHtml(nextMedicationTime || "--:--")}</span>
           <div>
             <strong>${escapeHtml(medication.name)}</strong>
-            <p>${escapeHtml(formatCourse(medication))}</p>
+            <p>${escapeHtml(`${formatCourse(medication)}${allTimes && allTimes !== nextMedicationTime ? `, все приемы: ${allTimes}` : ""}`)}</p>
           </div>
         </div>
-      `,
+      `;
+      },
     )
     .join("");
 }
@@ -180,8 +218,8 @@ quickActions.forEach((button) => {
       add: "Добавь лекарство",
       list: "Показать лекарства",
       course: appState.medications[0] ? `День курса ${appState.medications[0].name}` : "День курса",
-      info: "Для чего парацетамол",
-      pharmacy: "Где купить ибупрофен",
+      info: "Справка о препарате",
+      pharmacy: "Найти аптеку",
       safety: "Что мне принимать от давления?",
     };
 

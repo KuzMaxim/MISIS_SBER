@@ -4,7 +4,12 @@ from html import escape
 
 from app.safety import SAFE_DISCLAIMER
 from app.schemas import SmartAppRequest, VoiceRequest, VoiceResponse
-from app.utils import format_schedule_times, single_line_text
+from app.utils import (
+    format_schedule_times,
+    minutes_until_time,
+    nearest_schedule_time,
+    single_line_text,
+)
 
 
 class SmartAppService:
@@ -97,7 +102,9 @@ class SmartAppService:
         return bool(speak_available)
 
     def _welcome_response(self, user_id: str) -> VoiceResponse:
-        medications = self.medication_service.list_medications(user_id)
+        medications = self._sort_by_next_intake(
+            self.medication_service.list_medications(user_id)
+        )
         if medications:
             count_text = self._format_medication_count(len(medications))
             lines = self._medication_lines(medications)
@@ -238,7 +245,9 @@ class SmartAppService:
         return items
 
     def _frontend_state_command(self, user_id: str) -> dict:
-        medications = self.medication_service.list_medications(user_id)
+        medications = self._sort_by_next_intake(
+            self.medication_service.list_medications(user_id)
+        )
         return {
             "command": {
                 "type": "smart_app_data",
@@ -249,6 +258,7 @@ class SmartAppService:
                             {
                                 "name": item["name"],
                                 "schedule_times": item["schedule_times"],
+                                "next_time": nearest_schedule_time(item["schedule_times"]),
                                 "course_days": item.get("course_days"),
                             }
                             for item in medications
@@ -285,6 +295,17 @@ class SmartAppService:
         else:
             word = "лекарств"
         return f"{count} {word}"
+
+    @staticmethod
+    def _sort_by_next_intake(medications: list[dict]) -> list[dict]:
+        return sorted(
+            medications,
+            key=lambda item: (
+                minutes_until_time(nearest_schedule_time(item["schedule_times"])),
+                nearest_schedule_time(item["schedule_times"]),
+                item["name"].lower(),
+            ),
+        )
 
     @staticmethod
     def _text_cell(

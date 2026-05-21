@@ -6,7 +6,13 @@ from app.nlu import extract_course_details, parse_utterance
 from app.safety import SAFE_DISCLAIMER, medical_refusal_text, requires_medical_refusal
 from app.schemas import MedicationCreate, VoiceRequest, VoiceResponse
 from app.storage import JsonStorage
-from app.utils import format_schedule_times, normalize_text, parse_time_fragment
+from app.utils import (
+    format_schedule_times,
+    minutes_until_time,
+    nearest_schedule_time,
+    normalize_text,
+    parse_time_fragment,
+)
 
 CONTROL_UTTERANCES = {
     "добавь лекарство",
@@ -21,6 +27,10 @@ CONTROL_UTTERANCES = {
     "моё расписание",
     "помощь",
     "справка",
+    "справка о препарате",
+    "справка по препарату",
+    "найти аптеку",
+    "поиск аптеки",
     "выход",
     "стоп",
 }
@@ -211,6 +221,58 @@ class DialogService:
             self._set_session(user_id, None)
             return response
 
+        if step == "awaiting_pharmacy_name":
+            if parsed.intent == "ПоискАптеки" and not parsed.slots.get("name"):
+                self._set_session(user_id, session)
+                return VoiceResponse(
+                    text="Назовите препарат, который нужно найти в аптеке.",
+                    suggestions=["Помощь", "Показать лекарства"],
+                    auto_listening=True,
+                    audio_cue="prompt",
+                    emotion="zhdu_otvet",
+                    screen_title="Поиск в аптеках",
+                    screen_lines=["Назовите препарат."],
+                )
+            if self._is_control_utterance(utterance) and parsed.intent != "ПоискАптеки":
+                self._set_session(user_id, None)
+                return self._dispatch(
+                    user_id,
+                    parsed.intent,
+                    parsed.slots,
+                    utterance=utterance,
+                )
+            self._set_session(user_id, None)
+            return self._pharmacy_response(
+                utterance.strip(" .,!?:;"),
+                intent="ПоискАптеки",
+            )
+
+        if step == "awaiting_info_name":
+            if parsed.intent == "СправкаОПрепарате" and not parsed.slots.get("name"):
+                self._set_session(user_id, session)
+                return VoiceResponse(
+                    text="Назовите препарат, о котором нужна справка.",
+                    suggestions=["Помощь", "Показать лекарства"],
+                    auto_listening=True,
+                    audio_cue="prompt",
+                    emotion="zhdu_otvet",
+                    screen_title="Справка о препарате",
+                    screen_lines=["Назовите препарат."],
+                )
+            if self._is_control_utterance(utterance) and parsed.intent != "СправкаОПрепарате":
+                self._set_session(user_id, None)
+                return self._dispatch(
+                    user_id,
+                    parsed.intent,
+                    parsed.slots,
+                    utterance=utterance,
+                )
+            self._set_session(user_id, None)
+            return self._drug_info_response(
+                utterance.strip(" .,!?:;"),
+                intent="СправкаОПрепарате",
+            )
+
         self._set_session(user_id, None)
         return VoiceResponse(
             text="Давайте начнём заново. Скажите: добавь лекарство.",
@@ -327,77 +389,38 @@ class DialogService:
         if intent == "ПоискАптеки":
             name = slots.get("name")
             if not name:
+                self._set_session(
+                    user_id,
+                    {"intent": "ПоискАптеки", "step": "awaiting_pharmacy_name", "draft": {}},
+                )
                 return VoiceResponse(
                     text="Назовите препарат, который нужно найти в аптеке.",
-                    suggestions=["Где купить ибупрофен", "Где купить парацетамол", "Помощь"],
+                    suggestions=["Помощь", "Показать лекарства"],
                     auto_listening=True,
                     audio_cue="prompt",
                     emotion="zhdu_otvet",
                     screen_title="Поиск в аптеках",
                     screen_lines=["Назовите препарат."],
                 )
-            result = self.pharmacy_service.search(name)
-            if not result["results"]:
-                text = f"Не удалось найти аптек с препаратом {name} в локальном каталоге."
-                screen_lines = [text]
-            else:
-                best = result["results"][0]
-                text = (
-                    f"В локальном каталоге самая низкая цена: {best['pharmacy_name']}, "
-                    f"{best['address']}, цена {best['price']} рублей."
-                )
-                screen_lines = [
-                    f"{best['pharmacy_name']} — {best['price']} ₽",
-                    f"{best['address']}",
-                ]
-                if len(result["results"]) > 1:
-                    for item in result["results"][1:3]:
-                        screen_lines.append(f"{item['pharmacy_name']} — {item['price']} ₽")
-            return VoiceResponse(
-                text=text,
-                intent=intent,
-                disclaimer=result["disclaimer"],
-                data=result,
-                suggestions=["Где купить парацетамол", "Покажи лекарства", "Помощь"],
-                audio_cue="info",
-                emotion="zainteresovannost",
-                screen_title=f"Аптеки: {name}",
-                screen_lines=screen_lines,
-            )
+            return self._pharmacy_response(name, intent=intent)
 
         if intent == "СправкаОПрепарате":
             name = slots.get("name")
             if not name:
+                self._set_session(
+                    user_id,
+                    {"intent": "СправкаОПрепарате", "step": "awaiting_info_name", "draft": {}},
+                )
                 return VoiceResponse(
                     text="Назовите препарат, о котором нужна справка.",
-                    suggestions=["Для чего парацетамол", "Для чего ибупрофен", "Помощь"],
+                    suggestions=["Помощь", "Показать лекарства"],
                     auto_listening=True,
                     audio_cue="prompt",
                     emotion="zhdu_otvet",
                     screen_title="Справка о препарате",
                     screen_lines=["Назовите препарат."],
                 )
-            info = self.drug_info_service.get_info(name)
-            contra = ""
-            screen_lines = [info["answer"]]
-            if info["contraindications"]:
-                contra = " Противопоказания по инструкции: " + ", ".join(info["contraindications"]) + "."
-                screen_lines.append(
-                    "Противопоказания: " + ", ".join(info["contraindications"][:3])
-                )
-            screen_lines.append(info["disclaimer"])
-            return VoiceResponse(
-                text=info["answer"] + contra,
-                intent=intent,
-                disclaimer=info["disclaimer"],
-                data=info,
-                suggestions=["Какие противопоказания у парацетамола", "Добавь лекарство", "Помощь"],
-                audio_cue="info",
-                emotion="zainteresovannost",
-                screen_title=f"Справка: {name}",
-                screen_lines=screen_lines,
-                speak_disclaimer=True,
-            )
+            return self._drug_info_response(name, intent=intent)
 
         if intent == "Неизвестно":
             if utterance and normalize_text(utterance) in {"принял", "приняла"}:
@@ -595,6 +618,7 @@ class DialogService:
                 screen_lines=["Скажите: добавь лекарство."],
             )
 
+        medications = self._sort_by_next_intake(medications)
         lines = []
         for medication in medications[:5]:
             course_part = (
@@ -633,3 +657,67 @@ class DialogService:
         else:
             word = "лекарств"
         return f"{count} {word}"
+
+    def _pharmacy_response(self, name: str, *, intent: str) -> VoiceResponse:
+        result = self.pharmacy_service.search(name)
+        if not result["results"]:
+            text = f"Не удалось найти аптек с препаратом {name} в локальном каталоге."
+            screen_lines = [text]
+        else:
+            best = result["results"][0]
+            text = (
+                f"В локальном каталоге самая низкая цена: {best['pharmacy_name']}, "
+                f"{best['address']}, цена {best['price']} рублей."
+            )
+            screen_lines = [
+                f"{best['pharmacy_name']} — {best['price']} ₽",
+                f"{best['address']}",
+            ]
+            if len(result["results"]) > 1:
+                for item in result["results"][1:3]:
+                    screen_lines.append(f"{item['pharmacy_name']} — {item['price']} ₽")
+        return VoiceResponse(
+            text=text,
+            intent=intent,
+            disclaimer=result["disclaimer"],
+            data=result,
+            suggestions=["Найти аптеку", "Покажи лекарства", "Помощь"],
+            audio_cue="info",
+            emotion="zainteresovannost",
+            screen_title=f"Аптеки: {name}",
+            screen_lines=screen_lines,
+        )
+
+    def _drug_info_response(self, name: str, *, intent: str) -> VoiceResponse:
+        info = self.drug_info_service.get_info(name)
+        contra = ""
+        screen_lines = [info["answer"]]
+        if info["contraindications"]:
+            contra = " Противопоказания по инструкции: " + ", ".join(info["contraindications"]) + "."
+            screen_lines.append(
+                "Противопоказания: " + ", ".join(info["contraindications"][:3])
+            )
+        screen_lines.append(info["disclaimer"])
+        return VoiceResponse(
+            text=info["answer"] + contra,
+            intent=intent,
+            disclaimer=info["disclaimer"],
+            data=info,
+            suggestions=["Справка о препарате", "Добавь лекарство", "Помощь"],
+            audio_cue="info",
+            emotion="zainteresovannost",
+            screen_title=f"Справка: {name}",
+            screen_lines=screen_lines,
+            speak_disclaimer=True,
+        )
+
+    @staticmethod
+    def _sort_by_next_intake(medications: list[dict]) -> list[dict]:
+        return sorted(
+            medications,
+            key=lambda item: (
+                minutes_until_time(nearest_schedule_time(item["schedule_times"])),
+                nearest_schedule_time(item["schedule_times"]),
+                item["name"].lower(),
+            ),
+        )
