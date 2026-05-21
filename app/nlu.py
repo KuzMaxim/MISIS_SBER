@@ -33,10 +33,24 @@ def parse_utterance(text: str) -> ParsedIntent:
     if lowered in {"выход", "стоп", "закрыть", "закрой навык", "завершить"}:
         return ParsedIntent("Завершить", {})
 
-    if lowered in {"мои лекарства", "покажи лекарства", "что я принимаю", "мое расписание"}:
+    if lowered in {
+        "мои лекарства",
+        "покажи лекарства",
+        "показать лекарства",
+        "что я принимаю",
+        "мое расписание",
+    }:
         return ParsedIntent("ПоказатьЛекарства", {})
 
-    if any(token in lowered for token in ["добавь лекарство", "добавить лекарство"]):
+    if any(
+        token in lowered
+        for token in [
+            "добавь лекарство",
+            "добавь лекарства",
+            "добавить лекарство",
+            "добавить лекарства",
+        ]
+    ):
         return ParsedIntent("ДобавитьЛекарство", {})
 
     reminder_match = re.search(
@@ -55,7 +69,7 @@ def parse_utterance(text: str) -> ParsedIntent:
     add_match = re.search(r"^(?:добавь|добавить)\s+(?P<name>.+)$", lowered)
     if add_match:
         name = add_match.group("name").strip(" .,!?:;")
-        if name != "лекарство":
+        if name not in {"лекарство", "лекарства"}:
             return ParsedIntent(
                 "ДобавитьЛекарство",
                 {

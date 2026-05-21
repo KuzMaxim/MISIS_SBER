@@ -218,6 +218,82 @@ def test_sber_moderation_time_phrases_are_recognized_e2e(tmp_path):
         ]
 
 
+def test_sber_repeated_add_command_is_not_saved_as_medication_name(tmp_path):
+    client = build_client(tmp_path)
+    user_id = "repeat-add-user"
+
+    step1 = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Добавь лекарство",
+            message_id=1,
+            user_id=user_id,
+        ),
+    ).json()
+    step2 = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Добавь лекарство",
+            intent=step1["payload"]["intent"],
+            message_id=2,
+            user_id=user_id,
+        ),
+    ).json()
+
+    assert "Назовите препарат" in step2["payload"]["items"][0]["bubble"]["text"]
+    assert client.get(f"/api/v1/medications/{user_id}").json() == []
+
+    step3 = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Аспирин",
+            intent=step2["payload"]["intent"],
+            message_id=3,
+            user_id=user_id,
+        ),
+    ).json()
+    step4 = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Каждый день в 9 утра",
+            intent=step3["payload"]["intent"],
+            message_id=4,
+            user_id=user_id,
+        ),
+    ).json()
+    client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="7 дней",
+            intent=step4["payload"]["intent"],
+            message_id=5,
+            user_id=user_id,
+        ),
+    )
+
+    list_response = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Показать лекарства",
+            message_id=6,
+            user_id=user_id,
+        ),
+    ).json()
+    list_text = list_response["payload"]["items"][0]["bubble"]["text"].lower()
+    meds = client.get(f"/api/v1/medications/{user_id}").json()
+
+    assert len(meds) == 1
+    assert meds[0]["name"] == "Аспирин"
+    assert "1 лекарство" in list_text
+    assert "добавь лекар" not in list_text
+
+
 def test_sber_previous_response_intent_does_not_break_multistep_flow(tmp_path):
     client = build_client(tmp_path)
 

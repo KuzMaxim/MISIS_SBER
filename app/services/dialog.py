@@ -8,6 +8,23 @@ from app.schemas import MedicationCreate, VoiceRequest, VoiceResponse
 from app.storage import JsonStorage
 from app.utils import format_schedule_times, normalize_text, parse_time_fragment
 
+CONTROL_UTTERANCES = {
+    "добавь лекарство",
+    "добавь лекарства",
+    "добавить лекарство",
+    "добавить лекарства",
+    "покажи лекарство",
+    "покажи лекарства",
+    "показать лекарства",
+    "мои лекарства",
+    "мое расписание",
+    "моё расписание",
+    "помощь",
+    "справка",
+    "выход",
+    "стоп",
+}
+
 
 class DialogService:
     def __init__(
@@ -75,9 +92,26 @@ class DialogService:
     def _continue_session(self, user_id: str, session: dict, utterance: str) -> VoiceResponse:
         step = session["step"]
         draft = session["draft"]
+        parsed = parse_utterance(utterance)
 
         if step == "awaiting_name":
-            draft["name"] = utterance.strip()
+            if parsed.intent == "ДобавитьЛекарство" and not parsed.slots.get("name"):
+                self._set_session(user_id, session)
+                return self._ask_medication_name(
+                    text="Уже добавляем лекарство. Назовите препарат, например: аспирин.",
+                )
+            if parsed.intent == "ДобавитьЛекарство" and parsed.slots.get("name"):
+                draft["name"] = parsed.slots["name"]
+            elif self._is_control_utterance(utterance) or parsed.intent != "Неизвестно":
+                self._set_session(user_id, None)
+                return self._dispatch(
+                    user_id,
+                    parsed.intent,
+                    parsed.slots,
+                    utterance=utterance,
+                )
+            else:
+                draft["name"] = utterance.strip()
             session["step"] = "awaiting_time"
             self._set_session(user_id, session)
             return VoiceResponse(
@@ -95,6 +129,21 @@ class DialogService:
             )
 
         if step == "awaiting_time":
+            if parsed.intent == "ДобавитьЛекарство" and not parsed.slots.get("name"):
+                session["step"] = "awaiting_name"
+                session["draft"] = {}
+                self._set_session(user_id, session)
+                return self._ask_medication_name(
+                    text="Начнём добавление заново. Как называется препарат?",
+                )
+            if parsed.intent != "Неизвестно" and parsed.intent != "ДобавитьЛекарство":
+                self._set_session(user_id, None)
+                return self._dispatch(
+                    user_id,
+                    parsed.intent,
+                    parsed.slots,
+                    utterance=utterance,
+                )
             schedule_time = parse_time_fragment(utterance)
             if not schedule_time:
                 return VoiceResponse(
@@ -128,6 +177,21 @@ class DialogService:
             )
 
         if step == "awaiting_course":
+            if parsed.intent == "ДобавитьЛекарство" and not parsed.slots.get("name"):
+                session["step"] = "awaiting_name"
+                session["draft"] = {}
+                self._set_session(user_id, session)
+                return self._ask_medication_name(
+                    text="Начнём добавление заново. Как называется препарат?",
+                )
+            if parsed.intent != "Неизвестно" and parsed.intent != "ДобавитьЛекарство":
+                self._set_session(user_id, None)
+                return self._dispatch(
+                    user_id,
+                    parsed.intent,
+                    parsed.slots,
+                    utterance=utterance,
+                )
             course_details = extract_course_details(utterance)
             if not course_details["course_provided"]:
                 return VoiceResponse(
@@ -387,16 +451,7 @@ class DialogService:
                 user_id,
                 {"intent": "ДобавитьЛекарство", "step": "awaiting_name", "draft": {}},
             )
-            return VoiceResponse(
-                text="Как называется препарат?",
-                intent="ДобавитьЛекарство",
-                suggestions=["Аспирин", "Ибупрофен", "Парацетамол"],
-                auto_listening=True,
-                audio_cue="prompt",
-                emotion="zhdu_otvet",
-                screen_title="Добавление лекарства",
-                screen_lines=["Назовите препарат."],
-            )
+            return self._ask_medication_name()
 
         if not schedule_times:
             self._set_session(
@@ -482,6 +537,23 @@ class DialogService:
             ],
         )
 
+    @staticmethod
+    def _is_control_utterance(utterance: str) -> bool:
+        return normalize_text(utterance) in CONTROL_UTTERANCES
+
+    @staticmethod
+    def _ask_medication_name(*, text: str = "Как называется препарат?") -> VoiceResponse:
+        return VoiceResponse(
+            text=text,
+            intent="ДобавитьЛекарство",
+            suggestions=["Аспирин", "Ибупрофен", "Парацетамол"],
+            auto_listening=True,
+            audio_cue="prompt",
+            emotion="zhdu_otvet",
+            screen_title="Добавление лекарства",
+            screen_lines=["Назовите препарат."],
+        )
+
     def _help_response(self) -> VoiceResponse:
         return VoiceResponse(
             text=(
@@ -535,8 +607,9 @@ class DialogService:
             )
 
         first_name = medications[0]["name"]
+        count_text = self._format_medication_count(len(medications))
         return VoiceResponse(
-            text=f"В расписании {len(medications)} лекарств. Например: {first_name}.",
+            text=f"В расписании {count_text}. Например: {first_name}.",
             intent="ПоказатьЛекарства",
             data={"items": medications},
             suggestions=["Добавь лекарство", "Помощь", f"День курса {first_name}"],
@@ -545,3 +618,17 @@ class DialogService:
             screen_title="Ваше расписание",
             screen_lines=lines,
         )
+
+    @staticmethod
+    def _format_medication_count(count: int) -> str:
+        last_two = count % 100
+        last = count % 10
+        if 11 <= last_two <= 14:
+            word = "лекарств"
+        elif last == 1:
+            word = "лекарство"
+        elif 2 <= last <= 4:
+            word = "лекарства"
+        else:
+            word = "лекарств"
+        return f"{count} {word}"
