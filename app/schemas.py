@@ -200,6 +200,7 @@ class SmartAppServerAction(BaseModel):
 
     action_id: str | None = None
     parameters: dict[str, Any] = Field(default_factory=dict)
+    payload: dict[str, Any] = Field(default_factory=dict)
 
 
 class SmartAppPayload(BaseModel):

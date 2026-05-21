@@ -4,7 +4,7 @@ from html import escape
 
 from app.safety import SAFE_DISCLAIMER
 from app.schemas import SmartAppRequest, VoiceRequest, VoiceResponse
-from app.utils import single_line_text
+from app.utils import format_schedule_times, single_line_text
 
 
 class SmartAppService:
@@ -23,10 +23,10 @@ class SmartAppService:
 
         if request.messageName == "RUN_APP" and not utterance:
             self.medication_service.ensure_user(user_id)
-            voice_response = self._welcome_response()
+            voice_response = self._welcome_response(user_id)
         elif request.payload.new_session and not utterance:
             self.medication_service.ensure_user(user_id)
-            voice_response = self._welcome_response()
+            voice_response = self._welcome_response(user_id)
         else:
             voice_response = self.dialog_service.handle(
                 VoiceRequest(
@@ -60,6 +60,8 @@ class SmartAppService:
                     return text
         if request.payload.server_action and request.payload.server_action.parameters:
             return request.payload.server_action.parameters.get("text")
+        if request.payload.server_action and request.payload.server_action.payload:
+            return request.payload.server_action.payload.get("text")
         return None
 
     @staticmethod
@@ -94,8 +96,29 @@ class SmartAppService:
         )
         return bool(speak_available)
 
-    @staticmethod
-    def _welcome_response() -> VoiceResponse:
+    def _welcome_response(self, user_id: str) -> VoiceResponse:
+        medications = self.medication_service.list_medications(user_id)
+        if medications:
+            count_text = self._format_medication_count(len(medications))
+            lines = self._medication_lines(medications)
+            return VoiceResponse(
+                text=f"В расписании {count_text}: {'; '.join(lines)}.",
+                intent=None,
+                disclaimer=SAFE_DISCLAIMER,
+                suggestions=[
+                    "Показать лекарства",
+                    "Добавь лекарство",
+                    "Помощь",
+                ],
+                auto_listening=True,
+                finished=False,
+                audio_cue="welcome",
+                emotion="zainteresovannost",
+                screen_title="Ваше расписание",
+                screen_lines=lines + [SAFE_DISCLAIMER],
+                speak_disclaimer=True,
+            )
+
         return VoiceResponse(
             text=(
                 "Расписание пока пустое. Я помогу добавить первый препарат, задать время приема "
@@ -142,7 +165,12 @@ class SmartAppService:
                 else speak_text
             ),
             "pronounceTextType": "application/ssml" if can_speak else "application/text",
-            "items": self._build_items(voice_response, bubble_text, has_screen),
+            "items": self._build_items(
+                self._extract_user_id(request),
+                voice_response,
+                bubble_text,
+                has_screen,
+            ),
             "suggestions": {"buttons": self._build_buttons(voice_response.suggestions)},
             "auto_listening": voice_response.auto_listening,
             "finished": voice_response.finished,
@@ -163,6 +191,7 @@ class SmartAppService:
 
     def _build_items(
         self,
+        user_id: str,
         voice_response: VoiceResponse,
         bubble_text: str,
         has_screen: bool,
@@ -205,7 +234,57 @@ class SmartAppService:
                 }
             }
         )
+        items.append(self._frontend_state_command(user_id))
         return items
+
+    def _frontend_state_command(self, user_id: str) -> dict:
+        medications = self.medication_service.list_medications(user_id)
+        return {
+            "command": {
+                "type": "smart_app_data",
+                "smart_app_data": {
+                    "type": "health_state",
+                    "payload": {
+                        "medications": [
+                            {
+                                "name": item["name"],
+                                "schedule_times": item["schedule_times"],
+                                "course_days": item.get("course_days"),
+                            }
+                            for item in medications
+                        ]
+                    },
+                },
+            }
+        }
+
+    @staticmethod
+    def _medication_lines(medications: list[dict]) -> list[str]:
+        lines = []
+        for item in medications[:5]:
+            course_part = (
+                f", курс {item['course_days']} дней"
+                if item.get("course_days")
+                else ""
+            )
+            lines.append(
+                f"{item['name']} — {format_schedule_times(item['schedule_times'])}{course_part}"
+            )
+        return lines
+
+    @staticmethod
+    def _format_medication_count(count: int) -> str:
+        last_two = count % 100
+        last = count % 10
+        if 11 <= last_two <= 14:
+            word = "лекарств"
+        elif last == 1:
+            word = "лекарство"
+        elif 2 <= last <= 4:
+            word = "лекарства"
+        else:
+            word = "лекарств"
+        return f"{count} {word}"
 
     @staticmethod
     def _text_cell(

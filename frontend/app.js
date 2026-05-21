@@ -5,11 +5,53 @@ const fontToggle = document.querySelector("#font-toggle");
 const settingsButton = document.querySelector("#settings-button");
 const settingsSummary = document.querySelector("#settings-summary");
 const quickActions = document.querySelectorAll("[data-action]");
+const summaryCard = document.querySelector("#summary-card");
+const summaryKicker = document.querySelector("#summary-kicker");
+const summaryTitle = document.querySelector("#summary-title");
+const summaryCopy = document.querySelector("#summary-copy");
+const nextTime = document.querySelector("#next-time");
+const nextTimeCaption = document.querySelector("#next-time-caption");
+const scheduleBadge = document.querySelector("#schedule-badge");
+const scheduleList = document.querySelector("#schedule-list");
 
 let largeTextEnabled = false;
+let appState = { medications: [] };
+let assistantClient = null;
 
 function setStatus(text) {
   statusLine.textContent = text;
+}
+
+function formatMedicationCount(count) {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) {
+    return `${count} лекарств`;
+  }
+  if (last === 1) {
+    return `${count} лекарство`;
+  }
+  if (last >= 2 && last <= 4) {
+    return `${count} лекарства`;
+  }
+  return `${count} лекарств`;
+}
+
+function formatTimes(times) {
+  return [...(times || [])].sort().join(", ");
+}
+
+function formatCourse(medication) {
+  return medication.course_days ? `курс ${medication.course_days} дней` : "курс не задан";
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function renderSettings() {
@@ -20,11 +62,96 @@ function renderSettings() {
   `;
 }
 
+function renderSchedule(medications) {
+  appState = { medications: medications || [] };
+
+  if (!appState.medications.length) {
+    summaryCard.classList.add("empty-dose");
+    summaryKicker.textContent = "Первый запуск";
+    summaryTitle.textContent = "Расписание пока пустое";
+    summaryCopy.textContent = "Добавьте первый препарат и задайте время приема. Готовых лекарств здесь нет.";
+    nextTime.textContent = "--:--";
+    nextTimeCaption.textContent = "время задаст пользователь";
+    scheduleBadge.textContent = "пусто";
+    scheduleList.className = "empty-state";
+    scheduleList.innerHTML = `
+      <strong>Нет добавленных препаратов</strong>
+      <p>После настройки здесь появятся названия, время приема и статус курса.</p>
+    `;
+    return;
+  }
+
+  const firstMedication = appState.medications[0];
+  summaryCard.classList.remove("empty-dose");
+  summaryKicker.textContent = "Расписание";
+  summaryTitle.textContent = formatMedicationCount(appState.medications.length);
+  summaryCopy.textContent = `${firstMedication.name}: ${formatTimes(firstMedication.schedule_times)}, ${formatCourse(firstMedication)}.`;
+  nextTime.textContent = formatTimes(firstMedication.schedule_times) || "--:--";
+  nextTimeCaption.textContent = "ближайшее время приема";
+  scheduleBadge.textContent = formatMedicationCount(appState.medications.length);
+  scheduleList.className = "schedule-list";
+  scheduleList.innerHTML = appState.medications
+    .map(
+      (medication, index) => `
+        <div class="schedule-item ${index === 0 ? "is-next" : ""}">
+          <span class="time">${escapeHtml(formatTimes(medication.schedule_times) || "--:--")}</span>
+          <div>
+            <strong>${escapeHtml(medication.name)}</strong>
+            <p>${escapeHtml(formatCourse(medication))}</p>
+          </div>
+        </div>
+      `,
+    )
+    .join("");
+}
+
+function handleSmartAppData(data) {
+  if (!data) {
+    return;
+  }
+  const payload = data.payload || data;
+  if (data.type === "health_state" || Array.isArray(payload.medications)) {
+    renderSchedule(payload.medications || []);
+  }
+}
+
+function sendAssistantText(text) {
+  if (!assistantClient || typeof assistantClient.sendData !== "function") {
+    setStatus(text);
+    return;
+  }
+
+  assistantClient.sendData({
+    action: {
+      action_id: "frontend_text_action",
+      parameters: { text },
+    },
+  });
+}
+
+function initAssistantClient() {
+  if (!window.assistant || typeof window.assistant.createAssistant !== "function") {
+    return;
+  }
+
+  assistantClient = window.assistant.createAssistant({
+    getState: () => appState,
+    getRecoveryState: () => appState,
+  });
+  assistantClient.on("data", (command) => {
+    if (command && command.type === "smart_app_data") {
+      handleSmartAppData(command.smart_app_data);
+    }
+  });
+}
+
 setupButton.addEventListener("click", () => {
-  setStatus("Скажите ассистенту: «Добавь лекарство». Затем назовите препарат, время приема и длительность курса.");
+  sendAssistantText("Добавь лекарство");
+  setStatus("Скажите название препарата, затем время приема и длительность курса.");
 });
 
 helpButton.addEventListener("click", () => {
+  sendAssistantText("Помощь");
   setStatus("Я помогу добавить лекарство, напомню о приеме, покажу день курса и дам справку по инструкции.");
 });
 
@@ -39,25 +166,31 @@ fontToggle.addEventListener("click", () => {
 settingsButton.addEventListener("click", () => {
   settingsButton.classList.add("is-checked");
   renderSettings();
-  setStatus("Настройки проверены. Расписание пока пустое, уведомление близкому не задано.");
+  setStatus(
+    appState.medications.length
+      ? "Настройки проверены. Уведомление близкому не задано."
+      : "Настройки проверены. Расписание пока пустое, уведомление близкому не задано.",
+  );
 });
 
 quickActions.forEach((button) => {
   button.addEventListener("click", () => {
     const action = button.dataset.action;
     const messages = {
-      add: "Скажите: «Добавь лекарство». Я задам вопросы о названии, времени и курсе.",
-      list: "Список лекарств пока пуст. После добавления препараты появятся в расписании.",
-      course: "День курса станет доступен после добавления препарата с длительностью курса.",
-      info: "Справка по инструкции доступна по фразе: «Для чего препарат».",
-      pharmacy: "Поиск аптек включится после того, как вы назовете нужный препарат.",
-      safety: "Я не назначаю лечение и не даю индивидуальные рекомендации. Обратитесь к врачу.",
+      add: "Добавь лекарство",
+      list: "Показать лекарства",
+      course: appState.medications[0] ? `День курса ${appState.medications[0].name}` : "День курса",
+      info: "Для чего парацетамол",
+      pharmacy: "Где купить ибупрофен",
+      safety: "Что мне принимать от давления?",
     };
 
     quickActions.forEach((item) => item.classList.remove("is-active"));
     button.classList.add("is-active");
-    setStatus(messages[action]);
+    sendAssistantText(messages[action]);
   });
 });
 
 renderSettings();
+renderSchedule([]);
+initAssistantClient();

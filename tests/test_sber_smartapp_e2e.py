@@ -291,7 +291,84 @@ def test_sber_repeated_add_command_is_not_saved_as_medication_name(tmp_path):
     assert len(meds) == 1
     assert meds[0]["name"] == "Аспирин"
     assert "1 лекарство" in list_text
+    assert "Аспирин — 09:00" in list_response["payload"]["items"][0]["bubble"]["text"]
+    assert "например" not in list_text
     assert "добавь лекар" not in list_text
+
+
+def test_sber_course_words_and_canvas_state_update_e2e(tmp_path):
+    client = build_client(tmp_path)
+    user_id = "canvas-state-user"
+
+    step1 = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Добавь лекарство",
+            message_id=1,
+            user_id=user_id,
+        ),
+    ).json()
+    step2 = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Аспирин",
+            intent=step1["payload"]["intent"],
+            message_id=2,
+            user_id=user_id,
+        ),
+    ).json()
+    step3 = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="Каждый день в 9 утра",
+            intent=step2["payload"]["intent"],
+            message_id=3,
+            user_id=user_id,
+        ),
+    ).json()
+    step4 = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="MESSAGE_TO_SKILL",
+            text="семь дней",
+            intent=step3["payload"]["intent"],
+            message_id=4,
+            user_id=user_id,
+        ),
+    ).json()
+
+    command_items = [
+        item["command"]
+        for item in step4["payload"]["items"]
+        if "command" in item and item["command"]["type"] == "smart_app_data"
+    ]
+    assert "добавлен" in step4["payload"]["items"][0]["bubble"]["text"].lower()
+    assert command_items
+    assert command_items[0]["smart_app_data"]["type"] == "health_state"
+    assert command_items[0]["smart_app_data"]["payload"]["medications"] == [
+        {
+            "name": "Аспирин",
+            "schedule_times": ["09:00"],
+            "course_days": 7,
+        }
+    ]
+
+    run_app = client.post(
+        "/api/v1/sber/webhook",
+        json=smartapp_request(
+            message_name="RUN_APP",
+            has_screen=True,
+            new_session=True,
+            user_id=user_id,
+        ),
+    ).json()
+    assert "В расписании 1 лекарство: Аспирин — 09:00, курс 7 дней." in run_app[
+        "payload"
+    ]["items"][0]["bubble"]["text"]
+    assert run_app["payload"]["items"][1]["card"]["cells"][0]["content"]["text"] == "Ваше расписание"
 
 
 def test_sber_previous_response_intent_does_not_break_multistep_flow(tmp_path):

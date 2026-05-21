@@ -608,8 +608,9 @@ class DialogService:
 
         first_name = medications[0]["name"]
         count_text = self._format_medication_count(len(medications))
+        summary = "; ".join(lines)
         return VoiceResponse(
-            text=f"В расписании {count_text}. Например: {first_name}.",
+            text=f"В расписании {count_text}: {summary}.",
             intent="ПоказатьЛекарства",
             data={"items": medications},
             suggestions=["Добавь лекарство", "Помощь", f"День курса {first_name}"],

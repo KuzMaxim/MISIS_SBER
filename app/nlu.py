@@ -6,6 +6,47 @@ from typing import Any
 
 from app.utils import normalize_text, parse_time_fragment
 
+COURSE_NUMBER_WORDS = {
+    "один": 1,
+    "одна": 1,
+    "два": 2,
+    "две": 2,
+    "три": 3,
+    "четыре": 4,
+    "пять": 5,
+    "шесть": 6,
+    "семь": 7,
+    "восемь": 8,
+    "девять": 9,
+    "десять": 10,
+    "одиннадцать": 11,
+    "двенадцать": 12,
+    "тринадцать": 13,
+    "четырнадцать": 14,
+    "пятнадцать": 15,
+    "шестнадцать": 16,
+    "семнадцать": 17,
+    "восемнадцать": 18,
+    "девятнадцать": 19,
+    "двадцать": 20,
+    "двадцать один": 21,
+    "двадцать два": 22,
+    "двадцать три": 23,
+    "двадцать четыре": 24,
+    "двадцать пять": 25,
+    "двадцать шесть": 26,
+    "двадцать семь": 27,
+    "двадцать восемь": 28,
+    "двадцать девять": 29,
+    "тридцать": 30,
+}
+
+COURSE_NUMBER_PATTERN = re.compile(
+    r"\b("
+    + "|".join(sorted(map(re.escape, COURSE_NUMBER_WORDS), key=len, reverse=True))
+    + r")\b"
+)
+
 
 @dataclass
 class ParsedIntent:
@@ -19,9 +60,17 @@ def extract_course_details(text: str) -> dict[str, Any]:
         return {"course_days": None, "course_provided": True}
 
     match = re.search(r"\b(?P<days>\d{1,3})\s*(день|дня|дней)\b", lowered)
-    if not match:
-        return {"course_days": None, "course_provided": False}
-    return {"course_days": int(match.group("days")), "course_provided": True}
+    if match:
+        return {"course_days": int(match.group("days")), "course_provided": True}
+
+    word_match = COURSE_NUMBER_PATTERN.search(lowered)
+    if word_match and re.search(r"\b(день|дня|дней|сутки|суток)\b", lowered):
+        return {
+            "course_days": COURSE_NUMBER_WORDS[word_match.group(1)],
+            "course_provided": True,
+        }
+
+    return {"course_days": None, "course_provided": False}
 
 
 def parse_utterance(text: str) -> ParsedIntent:

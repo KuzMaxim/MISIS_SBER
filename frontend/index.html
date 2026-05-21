@@ -19,19 +19,19 @@
           </button>
         </div>
 
-        <article class="current-dose empty-dose">
+        <article class="current-dose empty-dose" id="summary-card">
           <div class="dose-visual setup-visual" aria-hidden="true">
             <span class="pill pill-blue"></span>
             <span class="pill pill-green"></span>
           </div>
           <div class="dose-copy">
-            <p class="muted">Первый запуск</p>
-            <h2>Расписание пока пустое</h2>
-            <p>Добавьте первый препарат и задайте время приема. Готовых лекарств здесь нет.</p>
+            <p class="muted" id="summary-kicker">Первый запуск</p>
+            <h2 id="summary-title">Расписание пока пустое</h2>
+            <p id="summary-copy">Добавьте первый препарат и задайте время приема. Готовых лекарств здесь нет.</p>
           </div>
           <div class="time-box empty-time" aria-label="Время приема не задано">
-            <span>--:--</span>
-            <small>время задаст пользователь</small>
+            <span id="next-time">--:--</span>
+            <small id="next-time-caption">время задаст пользователь</small>
           </div>
         </article>
 
@@ -58,9 +58,9 @@
         <article class="panel schedule-panel">
           <div class="section-head">
             <h2>Расписание</h2>
-            <span class="badge">пусто</span>
+            <span class="badge" id="schedule-badge">пусто</span>
           </div>
-          <div class="empty-state">
+          <div class="empty-state" id="schedule-list">
             <strong>Нет добавленных препаратов</strong>
             <p>После настройки здесь появятся названия, время приема и статус курса.</p>
           </div>
@@ -107,6 +107,7 @@
       </section>
     </main>
 
+    <script src="./assistant.production.min.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
