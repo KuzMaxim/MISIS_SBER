@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import json
 from pathlib import Path
 from typing import Any
 
@@ -203,3 +204,20 @@ def test_frontend_starts_as_empty_setup_template():
     for medication_name in ["Аспирин", "Ибупрофен", "Парацетамол"]:
         assert medication_name not in index_html
         assert medication_name not in app_js
+
+
+def test_reference_catalog_has_broad_drug_and_price_coverage():
+    drug_reference = json.loads(Path("data/drug_reference.json").read_text(encoding="utf-8"))
+    pharmacies = json.loads(Path("data/pharmacies.json").read_text(encoding="utf-8"))
+    priced_drugs = {
+        item["drug_name"].lower()
+        for pharmacy in pharmacies
+        for item in pharmacy["items"]
+        if item["in_stock"] and item["price"] > 0
+    }
+
+    assert len(drug_reference) >= 30
+    for name, entry in drug_reference.items():
+        assert entry["usage"], f"usage is empty for {name}"
+        assert len(entry["contraindications"]) >= 2, f"few contraindications for {name}"
+        assert name in priced_drugs, f"no in-stock price for {name}"
